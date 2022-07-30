@@ -158,7 +158,8 @@ class HashMap:
 
         #  Populate a new Dynamic Array with empty LL's with prime valued capacity
         new_buckets = DynamicArray()
-        new_capacity = self._next_prime(new_capacity)
+        if self._is_prime(new_capacity) is False:
+            new_capacity = self._next_prime(new_capacity)
         for _ in range(new_capacity):
             new_buckets.append(LinkedList())
 
