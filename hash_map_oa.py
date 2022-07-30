@@ -88,73 +88,235 @@ class HashMap:
 
     def put(self, key: str, value: object) -> None:
         """
-        TODO: Write this implementation
+        Update the key/value pair in the hash map. If the key already exists in the hash map, its associated value
+        is replaced with the new value. If the key is not in the hash map, a new key/value pair must be added.
+        Resize the table to the closest prime number to double current capacity if load factor >= 0.5.
+        :param key: Key to be inserted into the hash table.
+        :param value: Value to be inserted into the hash table.
+        :return:
         """
-        # remember, if the load factor is greater than or equal to 0.5,
-        # resize the table before putting the new key/value pair
-        pass
+        #  Use hash function to find hash index associated with key
+        hash_val = self._hash_function(key)
+        hash_idx = hash_val % self._capacity
+        init_hash_idx = hash_idx
+        quad_val = 0
+
+        #  If the key is found in the linked list, replace the value with the argument value
+        if self.contains_key(key) is True:
+            while self._buckets[hash_idx].key != key:
+                quad_val += 1
+                hash_idx = (init_hash_idx + quad_val ** 2) % self._capacity
+            self._buckets[hash_idx].value = value
+
+        #  Create new hash entry with the key/value pair and insert it to the first available spot if it does not exist
+        else:
+            #  Resize the table before adding the element if load factor exceeds 0.5
+            if self.table_load() >= 0.5:
+                self.resize_table(2 * self._capacity)
+                #  Recompute hash index associated with key if resize occurred
+                hash_val = self._hash_function(key)
+                hash_idx = hash_val % self._capacity
+                init_hash_idx = hash_idx
+
+            while self._buckets[hash_idx] is not None:
+                #  If the element is a tombstone, allow the program to override the element with a new hash entry
+                if self._buckets[hash_idx].is_tombstone is True:
+                    break
+                quad_val += 1
+                hash_idx = (init_hash_idx + quad_val ** 2) % self._capacity
+            new_entry = HashEntry(key, value)
+            self._buckets[hash_idx] = new_entry
+            self._size += 1
 
     def table_load(self) -> float:
         """
-        TODO: Write this implementation
+        Return the hash table's load factor
+        :return: self._size / self._capacity: The load factor of the hash map
         """
-        pass
+        #  Load Factor = Number of elements / Number of available addresses in the Dynamic Array
+        return self._size / self._capacity
 
     def empty_buckets(self) -> int:
         """
-        TODO: Write this implementation
+        Return the number of empty addresses in the hash table
+        :return:
         """
-        pass
+        count = 0
+        # Go through each value in the hash table and increment count if the hash entry is not a tombstone
+        for idx in range(self._capacity):
+            if self._buckets[idx] is None:
+                count += 1
+            elif self._buckets[idx].is_tombstone is True:
+                count += 1
+        return count
 
     def resize_table(self, new_capacity: int) -> None:
         """
-        TODO: Write this implementation
+        Change the capacity of the internal hash table. Rehash all existing key/value pairs. If the argument
+        new_capacity is less than the number of elements in the hash table, do nothing. If new_capacity is valid,
+        make sure the new hash table capacity is a prime number.
+        :param new_capacity: Baseline capacity for the new hash table
+        :return:
         """
-        # remember to rehash non-deleted entries into new table
-        pass
+        #  Do nothing if the new_capacity is less than size of the hash table
+        if new_capacity < self._size:
+            return
+
+        #  Populate a new Dynamic Array with None values with prime valued capacity
+        new_buckets = DynamicArray()
+        new_capacity = self._next_prime(new_capacity)
+        load_factor = self._size / new_capacity
+        while load_factor > 0.5:
+            new_capacity = self._next_prime(new_capacity + 1)
+            load_factor = self._size / new_capacity
+        for _ in range(new_capacity):
+            new_buckets.append(None)
+
+        #  Hash the values from the old Dynamic Array and insert the values to the new Dynamic Array
+        for idx in range(self._capacity):
+            quad_val = 0
+            current_entry = self._buckets[idx]
+            if current_entry is not None:
+                #  Only add non-tombstone entries to new Dynamic Array
+                if current_entry.is_tombstone is False:
+                    hash_val = self._hash_function(current_entry.key)
+                    hash_idx = (hash_val + quad_val ** 2) % new_capacity
+                    init_hash_idx = hash_idx
+                    #  Rehash until an empty spot is found
+                    while new_buckets[hash_idx] is not None:
+                        quad_val += 1
+                        hash_idx = (init_hash_idx + quad_val ** 2) % new_capacity
+                    new_buckets[hash_idx] = current_entry
+
+        #  Set buckets of the hash map to the new Dynamic Array and capacity to the new capacity
+        self._buckets = new_buckets
+        self._capacity = new_capacity
 
     def get(self, key: str) -> object:
         """
-        TODO: Write this implementation
+        Returns the value associated with the given key. Returns None if the key does not exist.
+        :param key: Key to be searched for
+        :return:
         """
-        pass
+        #  Return None automatically if there are no values contained in the hash table
+        if self._size == 0:
+            return None
+
+        #  If the key exists in the hash table, return the value associated with the key
+        if self.contains_key(key) is True:
+            hash_val = self._hash_function(key)
+            hash_idx = hash_val % self._capacity
+            init_hash_idx = hash_idx
+            quad_val = 0
+            while self._buckets[hash_idx].key != key:
+                quad_val += 1
+                hash_idx = (init_hash_idx + quad_val ** 2) % self._capacity
+            return self._buckets[hash_idx].value
+
+        return None
 
     def contains_key(self, key: str) -> bool:
         """
-        TODO: Write this implementation
+        Return True if the key is in the hash map. False otherwise.
+        :param key: Key to be searched for
+        :return: bool: True if the key is in the hash map. False otherwise.
         """
-        pass
+        #  Return False automatically if there are no values contained in the hash table
+        if self._size == 0:
+            return False
+
+        #  Find the hash entry in the hash table associated with the key
+        hash_val = self._hash_function(key)
+        hash_idx = hash_val % self._capacity
+        init_hash_idx = hash_idx
+        quad_val = 0
+
+        #  Go through buckets in the hash table. Return True if the key matches and hash entry is not a tombstone.
+        #  Return False if the hash index circled back to its original position, preventing an infinite loop.
+        #  Otherwise, update hash index and probe for the next entry.
+        while self._buckets[hash_idx] is not None:
+            if self._buckets[hash_idx].key == key and self._buckets[hash_idx].is_tombstone is False:
+                return True
+            elif hash_idx == init_hash_idx and quad_val > 0:
+                return False
+            else:
+                quad_val += 1
+                hash_idx = (init_hash_idx + quad_val ** 2) % self._capacity
+        return False
 
     def remove(self, key: str) -> None:
         """
-        TODO: Write this implementation
+        Remove the given key and its associated value from the hash map. If the key is not in the hash map, do nothing.
+        :param key:
+        :return:
         """
-        pass
+        if self._size == 0 or self.contains_key(key) is False:
+            return
+
+        #  Find the hash entry in the hash table associated with the key
+        hash_val = self._hash_function(key)
+        hash_idx = hash_val % self._capacity
+        init_hash_idx = hash_idx
+        quad_val = 0
+        while self._buckets[hash_idx].key != key:
+            quad_val += 1
+            hash_idx = (init_hash_idx + quad_val ** 2) % self._capacity
+
+        #  Remove the element by setting its tombstone value to True
+        self._buckets[hash_idx].is_tombstone = True
+        self._size -= 1
 
     def clear(self) -> None:
         """
-        TODO: Write this implementation
+        Clears the contents of the hash map without changing the underlying hash table capacity.
+        :return:
         """
-        pass
+        for idx in range(self._buckets.length()):
+            self._buckets[idx] = None
+        self._size = 0
 
     def get_keys_and_values(self) -> DynamicArray:
         """
-        TODO: Write this implementation
+        Return a Dynamic Array where each index contains a tuple of a key/value pair stored in the hash map.
+        :return: key_value_da: Dynamic Array with tuples of key-value tuples
         """
-        pass
+        #  Return an empty Dynamic Array if there are no values contained in the hash table
+        if self._size == 0:
+            return DynamicArray()
+
+        #  Create a new Dynamic Array
+        key_value_da = DynamicArray()
+
+        #  Go through each hash entry in buckets. Append key/value tuples to new Dynamic Array
+        for idx in range(self._capacity):
+            current_entry = self._buckets[idx]
+            if current_entry is not None:
+                if current_entry.is_tombstone is False:
+                    key_value_da.append((current_entry.key, current_entry.value))
+
+        #  Return the Dynamic Array
+        return key_value_da
 
 
 # ------------------- BASIC TESTING ---------------------------------------- #
 
 if __name__ == "__main__":
 
-    print("\nPDF - put example 1")
-    print("-------------------")
+    m = HashMap(53, hash_function_1)
+    for i in range(54):
+        m.put('str' + str(i), i * 100)
+    if i % 25 == 24:
+        print(m.empty_buckets(), m.table_load(), m.get_size(), m.get_capacity())
+    m.put('str' + str(54), 54 * 100)
+
+
     m = HashMap(53, hash_function_1)
     for i in range(150):
         m.put('str' + str(i), i * 100)
-        if i % 25 == 24:
-            print(m.empty_buckets(), round(m.table_load(), 2), m.get_size(), m.get_capacity())
+    if i % 25 == 24:
+        print(m.empty_buckets(), m.table_load(), m.get_size(), m.get_capacity())
+
+
 
     print("\nPDF - put example 2")
     print("-------------------")
@@ -211,7 +373,8 @@ if __name__ == "__main__":
     print(m.get_size(), m.get_capacity(), m.get('key1'), m.contains_key('key1'))
     m.resize_table(30)
     print(m.get_size(), m.get_capacity(), m.get('key1'), m.contains_key('key1'))
-
+    
+    
     print("\nPDF - resize example 2")
     print("----------------------")
     m = HashMap(79, hash_function_2)
@@ -237,7 +400,7 @@ if __name__ == "__main__":
             # NOT inserted keys must be absent
             result &= not m.contains_key(str(key + 1))
         print(capacity, result, m.get_size(), m.get_capacity(), round(m.table_load(), 2))
-
+    
     print("\nPDF - get example 1")
     print("-------------------")
     m = HashMap(31, hash_function_1)
@@ -332,3 +495,4 @@ if __name__ == "__main__":
     m.remove('1')
     m.resize_table(12)
     print(m.get_keys_and_values())
+

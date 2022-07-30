@@ -236,6 +236,7 @@ class HashMap:
         #  Remove the element from the hash table if the key exists. Do nothing if it doesn't
         if self.contains_key(key):
             hash_ll.remove(key)
+            self._size -= 1
         else:
             return
 
